@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ballinora Match Tracker",
+        "description": "Connect the Ballinora Match Tracker service. The access token is stored encrypted in Home Assistant and is only ever sent in the Authorization header. It is never logged or exposed in diagnostics.",
+        "data": {
+          "url": "Tracker URL",
+          "token": "Access token"
+        },
+        "data_description": {
+          "token": "Seen only by the tracker; never stored in plain text."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate",
+        "description": "The tracker rejected the previous access token. Enter a fresh one.",
+        "data": {
+          "token": "Access token"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure",
+        "description": "Update the tracker URL and/or access token.",
+        "data": {
+          "url": "Tracker URL",
+          "token": "Access token"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Enter a valid HTTPS URL (HTTP is only allowed for localhost).",
+      "invalid_auth": "The tracker rejected those credentials.",
+      "cannot_connect": "Could not reach the tracker. Check the URL and your connection.",
+      "unknown": "Something unexpected went wrong."
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh",
+      "description": "Immediately re-download the canonical fixture cache from the tracker. Does not trigger upstream score-source checks."
+    }
+  }
+}

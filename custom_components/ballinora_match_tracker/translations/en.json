@@ -1,0 +1,147 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ballinora Match Tracker",
+        "description": "Connect the Ballinora Match Tracker service. The access token is stored encrypted in Home Assistant and is only ever sent in the Authorization header. It is never logged or exposed in diagnostics.",
+        "data": {
+          "url": "Tracker URL",
+          "token": "Access token"
+        },
+        "data_description": {
+          "token": "Seen only by the tracker; never stored in plain text."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate",
+        "description": "The tracker rejected the previous access token. Enter a fresh one.",
+        "data": {
+          "token": "Access token"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure",
+        "description": "Update the tracker URL and/or access token.",
+        "data": {
+          "url": "Tracker URL",
+          "token": "Access token"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Enter a valid HTTPS URL (HTTP is only allowed for localhost).",
+      "invalid_auth": "The tracker rejected those credentials.",
+      "cannot_connect": "Could not reach the tracker. Check the URL and your connection.",
+      "unknown": "Something unexpected went wrong."
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh",
+      "description": "Immediately re-download the canonical fixture cache from the tracker. Does not trigger upstream score-source checks."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "phase": {
+        "name": "Phase",
+        "state": {
+          "scheduled": "Scheduled",
+          "first_half": "First half",
+          "half_time": "Half-time",
+          "second_half": "Second half",
+          "extra_time": "Extra time",
+          "extra_time_half_time": "Extra-time interval",
+          "penalties": "Penalties",
+          "full_time_provisional": "Awaiting confirmation",
+          "full_time_confirmed": "Full-time",
+          "postponed": "Postponed",
+          "cancelled": "Cancelled",
+          "abandoned": "Abandoned"
+        }
+      },
+      "sport": {
+        "name": "Sport"
+      },
+      "home_team": {
+        "name": "Home team"
+      },
+      "away_team": {
+        "name": "Away team"
+      },
+      "competition": {
+        "name": "Competition"
+      },
+      "home_goals_points": {
+        "name": "Home goals-points"
+      },
+      "away_goals_points": {
+        "name": "Away goals-points"
+      },
+      "home_total": {
+        "name": "Home total"
+      },
+      "away_total": {
+        "name": "Away total"
+      },
+      "combined_score": {
+        "name": "Combined score"
+      },
+      "total_points": {
+        "name": "Total points"
+      },
+      "scheduled_at": {
+        "name": "Scheduled at"
+      },
+      "venue": {
+        "name": "Venue"
+      },
+      "confidence": {
+        "name": "Confidence"
+      },
+      "confidence_label": {
+        "name": "Confidence label"
+      },
+      "source_coverage": {
+        "name": "Source coverage"
+      },
+      "selected_source": {
+        "name": "Selected source"
+      },
+      "source_freshness": {
+        "name": "Source freshness"
+      },
+      "last_source_check": {
+        "name": "Last source check"
+      },
+      "active_fixtures": {
+        "name": "Active fixtures"
+      },
+      "tracker_last_update": {
+        "name": "Tracker last update"
+      }
+    },
+    "binary_sensor": {
+      "live": {
+        "name": "Live"
+      },
+      "conflict": {
+        "name": "Score conflict"
+      },
+      "operator_attention": {
+        "name": "Operator attention"
+      },
+      "tracker_ops_attention": {
+        "name": "Operator attention"
+      }
+    },
+    "button": {
+      "check_sources_now": {
+        "name": "Check sources now"
+      },
+      "refresh": {
+        "name": "Refresh"
+      }
+    }
+  }
+}

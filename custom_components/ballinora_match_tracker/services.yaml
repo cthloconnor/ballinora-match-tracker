@@ -1,0 +1,6 @@
+refresh:
+  name: Refresh
+  description: >-
+    Immediately re-download the canonical fixture cache from the Ballinora
+    Match Tracker. Does not trigger upstream score-source checks.
+  fields: {}
