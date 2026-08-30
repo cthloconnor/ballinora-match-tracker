@@ -94,6 +94,12 @@ See [`docs/testing.md`](docs/testing.md). Pure-logic and API tests run without
 Home Assistant; the integration suite needs the HA dev environment and is
 provided but must be run on a machine with the full HA test stack installed.
 
+## Releasing
+
+`node script/release.mjs bump patch` bumps every version in sync, rebuilds the
+card and tags `vX.Y.Z`; pushing that tag drafts the GitHub release with a
+changelog automatically. Full flow in [`docs/releasing.md`](docs/releasing.md).
+
 ## Uninstall
 
 Remove the config entry (**Settings → Devices → Ballinora Match Tracker →

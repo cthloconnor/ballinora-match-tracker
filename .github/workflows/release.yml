@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build card and draft release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Build card bundle
+        run: npm run build --prefix frontend
+
+      - name: Verify versions match the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          node - <<'EOF'
+          const fs = require("fs");
+          const tag = process.env.TAG.replace(/^v/, "");
+          const manifest = JSON.parse(
+            fs.readFileSync(
+              "custom_components/ballinora_match_tracker/manifest.json",
+              "utf8"
+            )
+          );
+          const src = fs.readFileSync("frontend/src/ballinora-match-card.js", "utf8");
+          const card = src.match(/ballinoraMatchCardVersion = "(\d+\.\d+\.\d+)"/)[1];
+          if (manifest.version !== tag || card !== tag) {
+            console.error(`Version mismatch: tag=${tag} manifest=${manifest.version} card=${card}`);
+            process.exit(1);
+          }
+          console.log(`Versions consistent at ${tag}`);
+          EOF
+
+      - name: Create GitHub release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace("refs/tags/", "");
+            const version = tag.replace(/^v/, "");
+
+            const { data: tags } = await github.rest.git.listMatchingRefs({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: "tags/v",
+            });
+            const tagNames = tags.map((t) => t.ref.replace("refs/tags/", ""));
+            tagNames.sort((a, b) => {
+              const va = a.replace(/^v/, "").split(".").map(Number);
+              const vb = b.replace(/^v/, "").split(".").map(Number);
+              for (let i = 0; i < 3; i++) {
+                if (va[i] !== vb[i]) return va[i] - vb[i];
+              }
+              return 0;
+            });
+            const idx = tagNames.indexOf(tag);
+            const prev =
+              idx > 0
+                ? tagNames[idx - 1]
+                : await core.exec("git", ["rev-list", "--max-parents=0", "HEAD"], { silent: true }).then((r) => r.stdout.trim());
+
+            const range = prev ? `${prev}..${tag}` : "";
+            const log = await core.exec("git", ["log", "--oneline", "--no-merges", range], { silent: true }).then((r) => r.stdout.trim());
+
+            const body = [
+              `## Ballinora Match Tracker v${version}`,
+              "",
+              ...(log ? log.split("\n").map((l) => `- ${l}`) : ["- Initial release."]),
+            ].join("\n");
+
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `v${version}`,
+              body,
+            });
+            console.log(`Release created: ${release.html_url}`);
