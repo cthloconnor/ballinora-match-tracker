@@ -54,12 +54,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: BallinoraConfigEntry) ->
 
     await async_reconcile_fixture_devices(hass, entry.entry_id, coordinator.data)
 
-    async def _reconcile_devices() -> None:
-        await async_reconcile_fixture_devices(hass, entry.entry_id, coordinator.data)
+    def _reconcile_devices() -> None:
+        hass.async_create_task(
+            async_reconcile_fixture_devices(hass, entry.entry_id, coordinator.data)
+        )
 
     # Any refresh may surface brand-new fixtures -> reconcile the device
     # registry each time (cheap; registry calls are idempotent).
-    coordinator.async_add_listener(_reconcile_devices)
+    unsub_reconcile = coordinator.async_add_listener(_reconcile_devices)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -71,7 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BallinoraConfigEntry) ->
         hass.services.async_register(DOMAIN, SERVICE_REFRESH, _async_refresh_service)
     )
 
-    entry.async_on_unload(coordinator.async_remove_listener(_reconcile_devices))
+    entry.async_on_unload(unsub_reconcile)
 
     return True
 
