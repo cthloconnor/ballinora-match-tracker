@@ -1,7 +1,13 @@
-/** The Ballinora Match Tracker single-fixture card. */
+/** The Ballinora Match Tracker single-fixture scoreboard card.
+ *
+ * A scoreboard in the style of the popular teamtracker card, but driven by the
+ * Ballinora Match Tracker integration (the app is the source, never ESPN).
+ * Teams sit on opposite sides, the goals-points score dominates the middle and
+ * the game state/clock sits below it. Layout is flipped with ``home_side``.
+ */
 import { LitElement, html, css, nothing, unsafeCSS } from "lit";
 
-import { binaryId, sensorId, splitEntity, stateOf } from "./entities.js";
+import { binaryId, splitEntity, stateOf } from "./entities.js";
 
 const PHASE_LABELS = {
   scheduled: "Scheduled",
@@ -47,12 +53,12 @@ export class BallinoraMatchCard extends LitElement {
     );
     return {
       entity: entity || "",
+      show_crests: false,
       show_competition: true,
-      show_venue: true,
       show_scheduled: true,
+      show_venue: true,
       show_confidence: true,
       show_sources: true,
-      show_crests: false,
     };
   }
 
@@ -78,7 +84,6 @@ export class BallinoraMatchCard extends LitElement {
     const awayGP = stateOf(this.hass, `sensor.${fixture}_away_goals_points`) ?? "0-0";
     const homeTotal = stateOf(this.hass, `sensor.${fixture}_home_total`);
     const awayTotal = stateOf(this.hass, `sensor.${fixture}_away_total`);
-    const combined = stateOf(this.hass, `sensor.${fixture}_combined_score`);
     const homeTeam = stateOf(this.hass, `sensor.${fixture}_home_team`) ?? "Home";
     const awayTeam = stateOf(this.hass, `sensor.${fixture}_away_team`) ?? "Away";
     const competition = stateOf(this.hass, `sensor.${fixture}_competition`);
@@ -99,82 +104,121 @@ export class BallinoraMatchCard extends LitElement {
     );
 
     const accent = c.accent || DEFAULT_ACCENT;
-    const phases = [this._phaseChip(phase, live), this._statusChips(conflict, attention)];
+    const home = {
+      part: "home",
+      name: homeTeam,
+      gp: homeGP,
+      total: homeTotal,
+      crest: c.home_crest,
+      url: c.home_url,
+    };
+    const away = {
+      part: "away",
+      name: awayTeam,
+      gp: awayGP,
+      total: awayTotal,
+      crest: c.away_crest,
+      url: c.away_url,
+    };
+    const flip = c.home_side === "right";
+    const left = flip ? away : home;
+    const right = flip ? home : away;
 
     return html`
-      <ha-card class="bmt-card">
-        ${competition && c.show_competition !== false
-          ? html`<div class="bmt-head" style="--accent:${accent}">
-              <span class="bmt-competition">${competition}</span>
-              ${phases}
-            </div>`
-          : html`<div class="bmt-head" style="--accent:${accent}">${phases}</div>`}
-
-        <div class="bmt-match">
-          <div class="bmt-team" part="home">
-            ${this._crest(c.home_crest, c)}
-            <span class="bmt-team-name">${homeTeam}</span>
-          </div>
-          <div class="bmt-score" style="--accent:${accent}">
-            <div class="bmt-scores">
-              <span class="bmt-gp">${homeGP}</span>
-              <span class="bmt-dash">–</span>
-              <span class="bmt-gp">${awayGP}</span>
-            </div>
-            ${combined
-              ? html`<div class="bmt-totals">${combined}</div>`
-              : html`<div class="bmt-totals">
-                  <span>${homeTotal ?? "0"}</span
-                  ><span class="bmt-totals-sep">·</span
-                  ><span>${awayTotal ?? "0"}</span>
-                </div>`}
-          </div>
-          <div class="bmt-team" part="away">
-            ${this._crest(c.away_crest, c)}
-            <span class="bmt-team-name">${awayTeam}</span>
-          </div>
+      <ha-card
+        class="bmt-card"
+        style="--bmt-accent:${accent}; --bmt-outline:${c.outline_color || "#fff"}"
+      >
+        <div class="bmt-head">
+          <span class="bmt-title">
+            ${c.card_title ||
+            (c.show_competition !== false && competition) ||
+            "Ballinora"}</span
+          >
         </div>
 
-        ${(c.show_scheduled !== false && scheduledAt) ||
-        (c.show_venue !== false && venue) ||
-        (c.show_confidence !== false && Number.isFinite(confidence))
-          ? html`
-              <div class="bmt-meta">
-                ${c.show_scheduled !== false && scheduledAt
-                  ? html`<span class="bmt-meta-item">
-                      ${this._formatWhen(scheduledAt)}
-                    </span>`
-                  : nothing}
-                ${c.show_venue !== false && venue
-                  ? html`<span class="bmt-meta-item">${venue}</span>`
-                  : nothing}
-                ${c.show_confidence !== false && Number.isFinite(confidence)
-                  ? html`<span class="bmt-meta-item bmt-conf">
-                      <span class="bmt-conf-bar" style="--accent:${accent}">
-                        <i style="width:${confidence}%"></i>
-                      </span>
-                      <span class="bmt-conf-pct">${confidence}%</span>
-                    </span>`
-                  : nothing}
-              </div>
-            `
-          : nothing}
+        <div
+          class="bmt-scoreline ${c.show_crests ? "bmt-has-crests" : ""}"
+          @click=${c.bottom_url ? () => this._open(c.bottom_url) : nothing}
+        >
+          ${this._side(c, left)}
+          ${this._vs(c, phase, live, conflict, attention)}
+          ${this._side(c, right)}
+        </div>
 
-        ${c.show_sources !== false && source
-          ? html`<div class="bmt-src">
-              <span>${source}</span
-              >${Number.isFinite(freshness)
-                ? html`<span class="bmt-fresh">${this._freshness(freshness)}</span>`
-                : nothing}
-            </div>`
-          : nothing}
+        <div class="bmt-footer">
+          ${c.show_scheduled !== false && scheduledAt
+            ? html`<span class="bmt-meta">${this._formatWhen(scheduledAt)}</span>`
+            : nothing}
+          ${c.show_venue !== false && venue
+            ? html`<span class="bmt-meta">${venue}</span>`
+            : nothing}
+          <span class="bmt-meta bmt-spacer"></span>
+          ${c.show_confidence !== false && Number.isFinite(confidence)
+            ? html`<span class="bmt-conf bmt-meta">
+                <span class="bmt-conf-bar"><i style="width:${confidence}%"></i></span>
+                ${confidence}%
+              </span>`
+            : nothing}
+          ${c.show_sources !== false && source
+            ? html`<span class="bmt-meta bmt-src">
+                ${source}
+                ${Number.isFinite(freshness)
+                  ? html`<span class="bmt-fresh">${this._freshness(freshness)}</span>`
+                  : nothing}
+              </span>`
+            : nothing}
+        </div>
       </ha-card>
     `;
   }
 
-  _crest(url) {
+  _side(c, team) {
+    return html`
+      <div class="bmt-side" part="${team.part}" @click=${() => this._open(team.url)}>
+        ${c.show_crests ? this._crest(team.crest, c.outline) : nothing}
+        <span class="bmt-team-name">${team.name}</span>
+        <span class="bmt-score">${team.gp}</span>
+        ${team.total ? html`<span class="bmt-total">${team.total} pts</span>` : nothing}
+      </div>
+    `;
+  }
+
+  _vs(c, phase, live, conflict, attention) {
+    return html`
+      <div class="bmt-vs">
+        <div class="bmt-status">
+          ${this._phaseChip(phase, live)}
+          ${conflict ? html`<span class="bmt-mini bmt-warn">⚠</span>` : nothing}
+          ${attention ? html`<span class="bmt-mini bmt-bad">⛔</span>` : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  _open(url) {
+    if (!url) return;
+    if (url === "more-info") {
+      const ev = new Event("hass-more-info", {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      });
+      ev.detail = { entityId: this._config?.entity };
+      this.dispatchEvent(ev);
+      return;
+    }
+    window.open(url, "_blank", "noopener");
+  }
+
+  _crest(url, outline) {
     return url
-      ? html`<img class="bmt-crest" alt="" src="${url}" loading="lazy" />`
+      ? html`<img
+          class="bmt-crest ${outline ? "bmt-crest-outline" : ""}"
+          alt=""
+          src="${url}"
+          loading="lazy"
+        />`
       : nothing;
   }
 
@@ -184,17 +228,6 @@ export class BallinoraMatchCard extends LitElement {
       ${live ? html`<span class="bmt-pulse" aria-hidden="true"></span>` : nothing}
       ${label}
     </span>`;
-  }
-
-  _statusChips(conflict, attention) {
-    const chips = [];
-    if (conflict) {
-      chips.push(html`<span class="bmt-chip bmt-chip-warn">⚠ Score</span>`);
-    }
-    if (attention) {
-      chips.push(html`<span class="bmt-chip bmt-chip-bad">⛔ Check</span>`);
-    }
-    return chips;
   }
 
   _formatWhen(iso) {
@@ -232,43 +265,101 @@ export class BallinoraMatchCard extends LitElement {
     .bmt-head {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+      justify-content: center;
       margin-bottom: 12px;
-      border-bottom: 1px solid
-        var(--divider-color, rgba(0, 0, 0, 0.12));
+      border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       padding-bottom: 10px;
     }
-    .bmt-competition {
+    .bmt-title {
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--primary-text-color, #1c1c1c);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-right: auto;
+      letter-spacing: 0.06em;
+      text-align: center;
+    }
+    .bmt-scoreline {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .bmt-side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      cursor: pointer;
+    }
+    .bmt-team-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary-text-color, #1c1c1c);
+      text-align: center;
+      line-height: 1.2;
+    }
+    .bmt-crest {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+      border-radius: 10px;
+    }
+    .bmt-crest-outline {
+      box-shadow: 0 0 0 2px var(--bmt-outline);
+    }
+    .bmt-score {
+      font-size: clamp(24px, 5vw, 38px);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--bmt-accent, ${unsafeCSS(DEFAULT_ACCENT)});
+      line-height: 1;
+    }
+    .bmt-total {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--secondary-text-color, #727272);
+      font-variant-numeric: tabular-nums;
+    }
+    .bmt-vs {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 6px;
+    }
+    .bmt-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
     .bmt-chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 9px;
       border-radius: 999px;
       color: var(--bmt-accent, ${unsafeCSS(DEFAULT_ACCENT)});
       background: rgba(128, 128, 160, 0.14);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
     .bmt-chip-live {
       color: #2e7d32;
-      background: rgba(46, 125, 50, 0.12);
+      background: rgba(46, 125, 50, 0.14);
     }
-    .bmt-chip-warn {
+    .bmt-mini {
+      font-size: 12px;
+    }
+    .bmt-warn {
       color: #f57f17;
-      background: rgba(245, 127, 23, 0.14);
     }
-    .bmt-chip-bad {
+    .bmt-bad {
       color: #c62828;
-      background: rgba(198, 40, 40, 0.12);
     }
     .bmt-pulse {
       width: 8px;
@@ -288,87 +379,33 @@ export class BallinoraMatchCard extends LitElement {
         transform: scale(0.75);
       }
     }
-    .bmt-match {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 8px;
-    }
-    .bmt-team {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-    }
-    .bmt-team-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--primary-text-color, #1c1c1c);
-      text-align: center;
-      line-height: 1.25;
-    }
-    .bmt-crest {
-      width: 44px;
-      height: 44px;
-      object-fit: contain;
-      border-radius: 8px;
-    }
-    .bmt-score {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      padding: 0 10px;
-    }
-    .bmt-scores {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-    }
-    .bmt-gp {
-      font-size: clamp(20px, 4vw, 30px);
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      color: var(--primary-text-color, #1c1c1c);
-    }
-    .bmt-dash {
-      color: var(--secondary-text-color, #727272);
-      font-size: 18px;
-    }
-    .bmt-totals {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--bmt-accent, ${unsafeCSS(DEFAULT_ACCENT)});
-      font-variant-numeric: tabular-nums;
-    }
-    .bmt-totals-sep {
-      opacity: 0.5;
-    }
-    .bmt-meta {
+    .bmt-footer {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 10px 16px;
-      margin-top: 14px;
-      padding-top: 10px;
+      gap: 6px 12px;
+      margin-top: 12px;
+      padding-top: 8px;
       border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-      font-size: 12.5px;
+      font-size: 11.5px;
       color: var(--secondary-text-color, #727272);
+    }
+    .bmt-meta {
+      white-space: nowrap;
+    }
+    .bmt-spacer {
+      flex: 1;
     }
     .bmt-conf {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      margin-left: auto;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
     }
     .bmt-conf-bar {
       display: inline-block;
-      width: 64px;
-      height: 6px;
+      width: 56px;
+      height: 5px;
       border-radius: 999px;
       overflow: hidden;
       background: var(--divider-color, rgba(0, 0, 0, 0.12));
@@ -379,20 +416,9 @@ export class BallinoraMatchCard extends LitElement {
       background: var(--bmt-accent, ${unsafeCSS(DEFAULT_ACCENT)});
       border-radius: inherit;
     }
-    .bmt-conf-pct {
-      font-variant-numeric: tabular-nums;
-    }
-    .bmt-src {
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 11.5px;
-      color: var(--secondary-text-color, #727272);
-    }
-    .bmt-fresh {
+    .bmt-src .bmt-fresh {
       font-style: italic;
+      margin-left: 4px;
     }
     .bmt-empty {
       display: flex;
@@ -405,9 +431,9 @@ export class BallinoraMatchCard extends LitElement {
       font-size: 12px;
       color: var(--disabled-text-color, #999);
     }
-    @media (min-width: 520px) {
-      .bmt-gp {
-        font-size: 34px;
+    @media (max-width: 420px) {
+      .bmt-score {
+        font-size: 26px;
       }
     }
     @media (prefers-reduced-motion: reduce) {

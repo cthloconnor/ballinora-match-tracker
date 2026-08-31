@@ -61,9 +61,48 @@ describe("ballinora-match-card", () => {
     expect(text).toContain("Ballinora Park");
   });
 
+  it("shows a card_title override instead of the competition", async () => {
+    const el = await render({ card_title: "Senior Final" });
+    const text = el.shadowRoot.textContent;
+    expect(text).toContain("Senior Final");
+    expect(text).not.toContain("County Championship");
+    expect(text).toContain("Ballinora");
+  });
+
   it("renders a live indicator when the live binary sensor is on", async () => {
     const el = await render();
     expect(el.shadowRoot.querySelector(".bmt-chip-live")).not.toBeNull();
+  });
+
+  it("renders crests only when enabled", async () => {
+    const el = await render({ show_crests: true, home_crest: "https://h", away_crest: "https://a" });
+    const imgs = [...el.shadowRoot.querySelectorAll(".bmt-crest")];
+    expect(imgs).toHaveLength(2);
+    expect(imgs[0].getAttribute("src")).toBe("https://h");
+    expect(imgs[1].getAttribute("src")).toBe("https://a");
+  });
+
+  it("adds an outline class when enabled", async () => {
+    const el = await render({
+      show_crests: true,
+      outline: true,
+      home_crest: "https://h",
+      away_crest: "https://a",
+    });
+    const imgs = [...el.shadowRoot.querySelectorAll(".bmt-crest")];
+    expect(imgs.every((i) => i.classList.contains("bmt-crest-outline"))).toBe(true);
+  });
+
+  it("flips sides when home_side is right", async () => {
+    const el = await render({ home_side: "right" });
+    const homeSide = el.shadowRoot.querySelector('.bmt-side[part="home"]');
+    const awaySide = el.shadowRoot.querySelector('.bmt-side[part="away"]');
+    // The home element must be physically after the away element in the grid.
+    const homeIndex = [...el.shadowRoot.querySelectorAll(".bmt-side")].indexOf(homeSide);
+    const awayIndex = [...el.shadowRoot.querySelectorAll(".bmt-side")].indexOf(awaySide);
+    expect(homeIndex).toBeGreaterThan(awayIndex);
+    expect(homeSide.textContent).toContain("Ballinora");
+    expect(awaySide.textContent).toContain("Rivals");
   });
 
   it("hides optional sections per config", async () => {
@@ -76,6 +115,18 @@ describe("ballinora-match-card", () => {
     expect(text).not.toContain("Ballinora Park");
     expect(text).not.toContain("Home page");
     expect(text).not.toContain("%");
+  });
+
+  it("opens a URL when a side tap target is configured", async () => {
+    const opened = [];
+    const orig = window.open;
+    window.open = (u) => opened.push(u);
+    const el = await render({ home_url: "https://example.org/home" });
+    await el.updateComplete;
+    const homeSide = el.shadowRoot.querySelector('.bmt-side[part="home"]');
+    homeSide.click();
+    expect(opened).toContain("https://example.org/home");
+    window.open = orig;
   });
 
   it("renders the empty state when no entity is configured", async () => {

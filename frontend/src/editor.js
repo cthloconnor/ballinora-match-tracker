@@ -55,9 +55,9 @@ export class BallinoraMatchCardEditor extends LitElement {
         <div class="bmt-field">
           <label>Title override (optional)</label>
           <ha-textfield
-            .value=${c.name || ""}
+            .value=${c.card_title || ""}
             placeholder="e.g. Senior Championship Final"
-            @change=${(e) => this._update({ name: e.target.value || undefined })}
+            @change=${(e) => this._update({ card_title: e.target.value || undefined })}
           ></ha-textfield>
         </div>
 
@@ -68,7 +68,30 @@ export class BallinoraMatchCardEditor extends LitElement {
           ${this._toggle("Confidence", c.show_confidence !== false, "show_confidence")}
           ${this._toggle("Source", c.show_sources !== false, "show_sources")}
           ${this._toggle("Crests", c.show_crests === true, "show_crests")}
+          ${this._toggle("Outline crests", c.outline === true, "outline")}
         </div>
+
+        <div class="bmt-field">
+          <label>Home side</label>
+          <select @change=${(e) => this._update({ home_side: e.target.value })}>
+            <option value="left" ?selected=${c.home_side !== "right"}>Left</option>
+            <option value="right" ?selected=${c.home_side === "right"}>Right</option>
+          </select>
+        </div>
+
+        ${c.outline
+          ? html`
+              <div class="bmt-field">
+                <label>Outline colour</label>
+                <ha-textfield
+                  .value=${c.outline_color || ""}
+                  placeholder="#ffffff"
+                  @change=${(e) =>
+                    this._update({ outline_color: e.target.value || undefined })}
+                ></ha-textfield>
+              </div>
+            `
+          : nothing}
 
         ${c.show_crests
           ? html`
@@ -97,6 +120,31 @@ export class BallinoraMatchCardEditor extends LitElement {
             .value=${c.accent || ""}
             placeholder="#5c6bc0"
             @change=${(e) => this._update({ accent: e.target.value || undefined })}
+          ></ha-textfield>
+        </div>
+
+        <div class="bmt-field">
+          <label>Home tap URL</label>
+          <ha-textfield
+            .value=${c.home_url || ""}
+            placeholder="https://… or more-info"
+            @change=${(e) => this._update({ home_url: e.target.value || undefined })}
+          ></ha-textfield>
+        </div>
+        <div class="bmt-field">
+          <label>Away tap URL</label>
+          <ha-textfield
+            .value=${c.away_url || ""}
+            placeholder="https://… or more-info"
+            @change=${(e) => this._update({ away_url: e.target.value || undefined })}
+          ></ha-textfield>
+        </div>
+        <div class="bmt-field">
+          <label>Tap URL for scoreboard (optional)</label>
+          <ha-textfield
+            .value=${c.bottom_url || ""}
+            placeholder="https://… or more-info"
+            @change=${(e) => this._update({ bottom_url: e.target.value || undefined })}
           ></ha-textfield>
         </div>
       </div>
