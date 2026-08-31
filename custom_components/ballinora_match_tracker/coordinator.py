@@ -9,6 +9,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -67,9 +68,7 @@ class BallinoraCoordinator(DataUpdateCoordinator[dict[str, Fixture]]):
 
     def __init__(self, hass: HomeAssistant, url: str, token: str) -> None:
         self.client = BallinoraApiClient(
-            session=hass.helpers.aiohttp_client.async_get_clientsession(
-                hass, verify_ssl=True
-            ),
+            session=async_get_clientsession(hass, verify_ssl=True),
             url=url,
             token=token,
         )
