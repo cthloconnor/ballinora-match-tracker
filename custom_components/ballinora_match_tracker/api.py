@@ -91,19 +91,43 @@ class BallinoraApiClient:
                             f"Tracker rejected the access token (HTTP {resp.status})"
                         )
                     if resp.status == HTTP_TOO_MANY_REQUESTS:
-                        retry_after = resp.headers.get("Retry-After")
+                        retry_after_header = resp.headers.get("Retry-After")
+                        retry_after_value = (
+                            retry_after_header.strip()
+                            if retry_after_header is not None
+                            else None
+                        )
+                        try:
+                            retry_after = (
+                                int(retry_after_value)
+                                if retry_after_value is not None
+                                and retry_after_value.isdecimal()
+                                else None
+                            )
+                        except ValueError:
+                            retry_after = None
                         raise RateLimitError(
                             message=(
                                 "Source check rate limited by the tracker; "
                                 "try again in a little while."
                             ),
-                            retry_after=int(retry_after) if retry_after else None,
+                            retry_after=retry_after,
                         )
                     if resp.status != HTTP_OK:
                         raise BallinoraApiError(
                             f"Tracker returned HTTP {resp.status} for {path}"
                         )
-                    return await resp.json(content_type=None)
+                    try:
+                        data = await resp.json(content_type=None)
+                    except (ValueError, UnicodeDecodeError) as err:
+                        raise BallinoraApiError(
+                            "Tracker returned invalid JSON"
+                        ) from err
+                    if not isinstance(data, dict):
+                        raise BallinoraApiError(
+                            "Tracker returned an unexpected JSON response"
+                        )
+                    return data
         except asyncio.TimeoutError as err:
             raise ConnectionFailed(f"Timed out talking to {redact_url(url)}") from err
         except aiohttp.ClientConnectionError as err:
@@ -113,7 +137,12 @@ class BallinoraApiClient:
 
     async def async_get_active_fixtures(self) -> dict[str, Any]:
         """Fetch all active and retained fixtures in one batched request."""
-        return await self._request(API_ACTIVE_FIXTURES_PATH)
+        data = await self._request(API_ACTIVE_FIXTURES_PATH)
+        if not isinstance(data.get("fixtures"), list):
+            raise BallinoraApiError(
+                "Tracker returned an invalid active fixtures response"
+            )
+        return data
 
     async def async_check_sources_now(self, fixture_id: str) -> dict[str, Any]:
         """Request a bounded, server-side source check for one fixture."""

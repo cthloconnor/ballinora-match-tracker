@@ -18,8 +18,11 @@ const PHASE_LABELS = {
   abandoned: "Abandoned",
 };
 
+const KNOWN_PHASES = new Set(Object.keys(PHASE_LABELS));
+const LIVE_PHASES = new Set(["first_half", "half_time", "second_half", "extra_time", "extra_time_half_time", "penalties"]);
+
 function phaseRank(phase) {
-  if (["first_half", "second_half", "extra_time", "penalties"].includes(phase)) {
+  if (LIVE_PHASES.has(phase)) {
     return 0;
   }
   if (["full_time_provisional", "full_time_confirmed"].includes(phase)) {
@@ -57,20 +60,22 @@ export class BallinoraMatchList extends LitElement {
     const list = [];
     for (const [id] of fixtures) {
       const base = `sensor.${id}`;
-      const phase = stateOf(this.hass, `${base}_phase`) ?? "scheduled";
+      const phase = stateOf(this.hass, `${base}_phase`);
+      if (!KNOWN_PHASES.has(phase)) continue;
+      const live = stateOf(this.hass, `binary_sensor.${id}_live`) === "on" || LIVE_PHASES.has(phase);
       list.push({
         id,
         phase,
         home: stateOf(this.hass, `${base}_home_team`) ?? "Home",
         away: stateOf(this.hass, `${base}_away_team`) ?? "Away",
-        homeGP: stateOf(this.hass, `${base}_home_goals_points`) ?? "0-0",
-        awayGP: stateOf(this.hass, `${base}_away_goals_points`) ?? "0-0",
-        live: stateOf(this.hass, `binary_sensor.${id}_live`) === "on",
+        homeGP: stateOf(this.hass, `${base}_home_goals_points`) ?? "Unknown",
+        awayGP: stateOf(this.hass, `${base}_away_goals_points`) ?? "Unknown",
+        live,
         competition: stateOf(this.hass, `${base}_competition`),
-        rank: phaseRank(phase),
+        rank: live ? 0 : phaseRank(phase),
       });
     }
-    list.sort((a, b) => a.rank - b.rank || a.home.localeCompare(b.home));
+    list.sort((a, b) => Number(b.live) - Number(a.live) || a.rank - b.rank || a.home.localeCompare(b.home));
     return list;
   }
 

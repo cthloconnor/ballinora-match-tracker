@@ -79,9 +79,12 @@ export class BallinoraMatchCard extends LitElement {
       return this._emptyState();
     }
 
-    const phase = stateOf(this.hass, `sensor.${fixture}_phase`) ?? "scheduled";
-    const homeGP = stateOf(this.hass, `sensor.${fixture}_home_goals_points`) ?? "0-0";
-    const awayGP = stateOf(this.hass, `sensor.${fixture}_away_goals_points`) ?? "0-0";
+    const phase = stateOf(this.hass, `sensor.${fixture}_phase`);
+    if (!phase || phase === "unavailable" || phase === "unknown" || !PHASE_LABELS[phase]) {
+      return this._noDataState();
+    }
+    const homeGP = stateOf(this.hass, `sensor.${fixture}_home_goals_points`) ?? "Unknown";
+    const awayGP = stateOf(this.hass, `sensor.${fixture}_away_goals_points`) ?? "Unknown";
     const homeTotal = stateOf(this.hass, `sensor.${fixture}_home_total`);
     const awayTotal = stateOf(this.hass, `sensor.${fixture}_away_total`);
     const homeTeam = stateOf(this.hass, `sensor.${fixture}_home_team`) ?? "Home";
@@ -251,6 +254,13 @@ export class BallinoraMatchCard extends LitElement {
         <span class="bmt-empty-hint">Select a fixture entity in the card editor.</span>
       </ha-card>
     `;
+  }
+
+  _noDataState() {
+    return html`<ha-card class="bmt-card bmt-empty">
+      <span>Ballinora Match Tracker</span>
+      <span class="bmt-empty-hint">No reliable current data for this fixture.</span>
+    </ha-card>`;
   }
 
   static styles = css`

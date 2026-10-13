@@ -13,11 +13,38 @@ function splitEntity(entityId) {
   }
   const domain = clean.slice(0, dot);
   const object = clean.slice(dot + 1);
-  const underscore = object.lastIndexOf("_");
+  const suffixes = {
+    sensor: [
+      "phase",
+      "sport",
+      "home_team",
+      "away_team",
+      "competition",
+      "home_goals_points",
+      "away_goals_points",
+      "home_total",
+      "away_total",
+      "combined_score",
+      "total_points",
+      "scheduled_at",
+      "venue",
+      "confidence",
+      "confidence_label",
+      "source_coverage",
+      "selected_source",
+      "source_freshness",
+      "last_source_check"
+    ],
+    binary_sensor: ["live", "conflict", "operator_attention"],
+    button: ["check_sources_now"]
+  };
+  const suffix = (suffixes[domain] || []).find(
+    (candidate) => object.endsWith(`_${candidate}`)
+  );
   return {
     domain,
     object,
-    fixture: underscore > 0 ? object.slice(0, underscore) : object
+    fixture: suffix ? object.slice(0, -(suffix.length + 1)) : object
   };
 }
 function binaryId(entityId, suffix) {
@@ -89,9 +116,12 @@ var BallinoraMatchCard = class extends LitElement {
     if (!fixture) {
       return this._emptyState();
     }
-    const phase = stateOf(this.hass, `sensor.${fixture}_phase`) ?? "scheduled";
-    const homeGP = stateOf(this.hass, `sensor.${fixture}_home_goals_points`) ?? "0-0";
-    const awayGP = stateOf(this.hass, `sensor.${fixture}_away_goals_points`) ?? "0-0";
+    const phase = stateOf(this.hass, `sensor.${fixture}_phase`);
+    if (!phase || phase === "unavailable" || phase === "unknown" || !PHASE_LABELS[phase]) {
+      return this._noDataState();
+    }
+    const homeGP = stateOf(this.hass, `sensor.${fixture}_home_goals_points`) ?? "Unknown";
+    const awayGP = stateOf(this.hass, `sensor.${fixture}_away_goals_points`) ?? "Unknown";
     const homeTotal = stateOf(this.hass, `sensor.${fixture}_home_total`);
     const awayTotal = stateOf(this.hass, `sensor.${fixture}_away_total`);
     const homeTeam = stateOf(this.hass, `sensor.${fixture}_home_team`) ?? "Home";
@@ -232,6 +262,12 @@ var BallinoraMatchCard = class extends LitElement {
         <span class="bmt-empty-hint">Select a fixture entity in the card editor.</span>
       </ha-card>
     `;
+  }
+  _noDataState() {
+    return html`<ha-card class="bmt-card bmt-empty">
+      <span>Ballinora Match Tracker</span>
+      <span class="bmt-empty-hint">No reliable current data for this fixture.</span>
+    </ha-card>`;
   }
   static styles = css`
     :host {
@@ -441,8 +477,10 @@ var PHASE_LABELS2 = {
   cancelled: "Cancelled",
   abandoned: "Abandoned"
 };
+var KNOWN_PHASES = new Set(Object.keys(PHASE_LABELS2));
+var LIVE_PHASES = /* @__PURE__ */ new Set(["first_half", "half_time", "second_half", "extra_time", "extra_time_half_time", "penalties"]);
 function phaseRank(phase) {
-  if (["first_half", "second_half", "extra_time", "penalties"].includes(phase)) {
+  if (LIVE_PHASES.has(phase)) {
     return 0;
   }
   if (["full_time_provisional", "full_time_confirmed"].includes(phase)) {
@@ -475,20 +513,22 @@ var BallinoraMatchList = class extends LitElement2 {
     const list = [];
     for (const [id] of fixtures) {
       const base = `sensor.${id}`;
-      const phase = stateOf(this.hass, `${base}_phase`) ?? "scheduled";
+      const phase = stateOf(this.hass, `${base}_phase`);
+      if (!KNOWN_PHASES.has(phase)) continue;
+      const live = stateOf(this.hass, `binary_sensor.${id}_live`) === "on" || LIVE_PHASES.has(phase);
       list.push({
         id,
         phase,
         home: stateOf(this.hass, `${base}_home_team`) ?? "Home",
         away: stateOf(this.hass, `${base}_away_team`) ?? "Away",
-        homeGP: stateOf(this.hass, `${base}_home_goals_points`) ?? "0-0",
-        awayGP: stateOf(this.hass, `${base}_away_goals_points`) ?? "0-0",
-        live: stateOf(this.hass, `binary_sensor.${id}_live`) === "on",
+        homeGP: stateOf(this.hass, `${base}_home_goals_points`) ?? "Unknown",
+        awayGP: stateOf(this.hass, `${base}_away_goals_points`) ?? "Unknown",
+        live,
         competition: stateOf(this.hass, `${base}_competition`),
-        rank: phaseRank(phase)
+        rank: live ? 0 : phaseRank(phase)
       });
     }
-    list.sort((a, b) => a.rank - b.rank || a.home.localeCompare(b.home));
+    list.sort((a, b) => Number(b.live) - Number(a.live) || a.rank - b.rank || a.home.localeCompare(b.home));
     return list;
   }
   render() {
@@ -776,20 +816,27 @@ customElements.define("ballinora-match-card-editor", BallinoraMatchCardEditor);
 
 // src/ballinora-match-card.js
 var ballinoraMatchCardVersion = "1.0.0";
-if (typeof window !== "undefined" && window.customCards) {
+if (typeof window !== "undefined") {
   window.customCards = window.customCards || [];
-  window.customCards.push({
-    type: "ballinora-match-card",
-    name: "Ballinora Match",
-    description: "Live score, phase and source confidence for one Ballinora fixture",
-    preview: false
-  });
-  window.customCards.push({
-    type: "ballinora-match-list",
-    name: "Ballinora Matches",
-    description: "All current Ballinora fixtures in a compact list",
-    preview: false
-  });
+  const descriptors = [
+    {
+      type: "ballinora-match-card",
+      name: "Ballinora Match",
+      description: "Live score, phase and source confidence for one Ballinora fixture",
+      preview: false
+    },
+    {
+      type: "ballinora-match-list",
+      name: "Ballinora Matches",
+      description: "All current Ballinora fixtures in a compact list",
+      preview: false
+    }
+  ];
+  for (const descriptor of descriptors) {
+    if (!window.customCards.some((card) => card.type === descriptor.type)) {
+      window.customCards.push(descriptor);
+    }
+  }
 }
 export {
   BallinoraMatchCard,

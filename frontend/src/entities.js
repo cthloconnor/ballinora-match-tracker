@@ -15,11 +15,26 @@ export function splitEntity(entityId) {
   }
   const domain = clean.slice(0, dot);
   const object = clean.slice(dot + 1);
-  const underscore = object.lastIndexOf("_");
+  // Current integration suffixes are fixed; match the longest complete suffix
+  // so underscores in the fixture id are preserved.
+  const suffixes = {
+    sensor: [
+      "phase", "sport", "home_team", "away_team", "competition",
+      "home_goals_points", "away_goals_points", "home_total", "away_total",
+      "combined_score", "total_points", "scheduled_at", "venue", "confidence",
+      "confidence_label", "source_coverage", "selected_source", "source_freshness",
+      "last_source_check",
+    ],
+    binary_sensor: ["live", "conflict", "operator_attention"],
+    button: ["check_sources_now"],
+  };
+  const suffix = (suffixes[domain] || []).find((candidate) =>
+    object.endsWith(`_${candidate}`),
+  );
   return {
     domain,
     object,
-    fixture: underscore > 0 ? object.slice(0, underscore) : object,
+    fixture: suffix ? object.slice(0, -(suffix.length + 1)) : object,
   };
 }
 

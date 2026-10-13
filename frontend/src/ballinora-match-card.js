@@ -12,20 +12,27 @@ import "./editor.js";
 
 export const ballinoraMatchCardVersion = "1.0.0";
 
-if (typeof window !== "undefined" && window.customCards) {
+if (typeof window !== "undefined") {
   window.customCards = window.customCards || [];
-  window.customCards.push({
-    type: "ballinora-match-card",
-    name: "Ballinora Match",
-    description: "Live score, phase and source confidence for one Ballinora fixture",
-    preview: false,
-  });
-  window.customCards.push({
-    type: "ballinora-match-list",
-    name: "Ballinora Matches",
-    description: "All current Ballinora fixtures in a compact list",
-    preview: false,
-  });
+  const descriptors = [
+    {
+      type: "ballinora-match-card",
+      name: "Ballinora Match",
+      description: "Live score, phase and source confidence for one Ballinora fixture",
+      preview: false,
+    },
+    {
+      type: "ballinora-match-list",
+      name: "Ballinora Matches",
+      description: "All current Ballinora fixtures in a compact list",
+      preview: false,
+    },
+  ];
+  for (const descriptor of descriptors) {
+    if (!window.customCards.some((card) => card.type === descriptor.type)) {
+      window.customCards.push(descriptor);
+    }
+  }
 }
 
 // The custom element classes must stay referenced so bundlers keep them.

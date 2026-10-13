@@ -10,6 +10,7 @@ from yarl import URL
 
 from custom_components.ballinora_match_tracker.api import (
     AuthenticationError,
+    BallinoraApiError,
     BallinoraApiClient,
     ConnectionFailed,
     RateLimitError,
@@ -60,6 +61,40 @@ async def test_active_fixtures_parses_json(client):
         mocked.get(BASE + API_ACTIVE_FIXTURES_PATH, payload={"fixtures": []})
         data = await client.async_get_active_fixtures()
     assert data == {"fixtures": []}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", ["not-json-secret", "[]", '"secret"', "null", "42"])
+async def test_active_fixtures_rejects_invalid_json_shapes(client, body):
+    with aioresponses() as mocked:
+        mocked.get(BASE + API_ACTIVE_FIXTURES_PATH, body=body)
+        with pytest.raises(BallinoraApiError) as exc:
+            await client.async_get_active_fixtures()
+    assert "not-json-secret" not in str(exc.value)
+    assert "secret" not in str(exc.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [{}, {"fixtures": None}, {"fixtures": {}}])
+async def test_active_fixtures_requires_fixtures_list(client, payload):
+    with aioresponses() as mocked:
+        mocked.get(BASE + API_ACTIVE_FIXTURES_PATH, payload=payload)
+        with pytest.raises(BallinoraApiError):
+            await client.async_get_active_fixtures()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retry_after", ["yesterday", "1.5", "-1", ""])
+async def test_429_ignores_unsupported_retry_after(client, retry_after):
+    with aioresponses() as mocked:
+        mocked.get(
+            BASE + API_ACTIVE_FIXTURES_PATH,
+            status=429,
+            headers={"Retry-After": retry_after},
+        )
+        with pytest.raises(RateLimitError) as exc:
+            await client.async_get_active_fixtures()
+    assert exc.value.retry_after is None
 
 
 @pytest.mark.asyncio

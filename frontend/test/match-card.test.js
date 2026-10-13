@@ -136,4 +136,29 @@ describe("ballinora-match-card", () => {
     await el.updateComplete;
     expect(el.shadowRoot.textContent).toContain("Select a fixture entity");
   });
+
+  it("does not invent scheduled scores when fixture data is missing", async () => {
+    const hass = { states: {} };
+    const el = await render({}, hass);
+    expect(el.shadowRoot.textContent).toContain("No reliable current data");
+    expect(el.shadowRoot.textContent).not.toContain("0-0");
+  });
+
+  it("does not present unavailable or unknown phases as reliable fixtures", async () => {
+    for (const phase of ["unavailable", "unknown", undefined]) {
+      const hass = { states: {} };
+      if (phase !== undefined) hass.states["sensor.f1_phase"] = { state: phase };
+      const el = await render({}, hass);
+      expect(el.shadowRoot.textContent).toContain("No reliable current data");
+      el.remove();
+    }
+  });
+
+  it("marks missing individual scores as unknown", async () => {
+    const hass = makeHass();
+    delete hass.states["sensor.f1_home_goals_points"];
+    const el = await render({}, hass);
+    expect(el.shadowRoot.textContent).toContain("Unknown");
+    expect(el.shadowRoot.querySelector(".bmt-side[part=home] .bmt-score").textContent).toBe("Unknown");
+  });
 });
